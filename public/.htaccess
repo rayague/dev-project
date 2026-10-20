@@ -1,0 +1,29 @@
+# ============================================================
+#  FICHIER .htaccess — Réécriture des URLs (module Apache)
+# ============================================================
+#
+#  RÔLE : dire à Apache (le serveur web d'XAMPP) :
+#  « N'importe quelle URL doit être envoyée vers public/index.php ».
+#
+#  Sans ce fichier, "/orders" provoquerait une erreur 404 car le
+#  fichier "orders.php" n'existe pas. Grâce à lui, tout arrive
+#  dans le routeur, qui sait quoi en faire.
+#
+#  C'est le « A » du pattern A (Apache) + MVC.
+# ============================================================
+
+# Autorise le module de réécriture (souvent déjà actif dans XAMPP)
+RewriteEngine On
+
+# Si la demande NE correspond PAS à un VRAI fichier...
+RewriteCond %{REQUEST_FILENAME} !-f
+# ...et NE correspond PAS à un VRAI dossier...
+RewriteCond %{REQUEST_FILENAME} !-d
+# ...alors (la ressource n'existe pas physiquement) on l'envoie
+# vers index.php, le point d'entrée unique du MVC.
+# __path = URL demandée transmise au routeur (voir .htaccess racine).
+RewriteRule ^(.*)$ index.php?__path=$1 [QSA,L]
+#  - ^(.*)$      : on capture toute l'URL demandée
+#  - __path=$1   : on la transmet au routeur (paramètre PHP)
+#  - QSA         : on conserve les autres paramètres (?id=3)
+#  - L           : dernière règle (on n'en cherche pas d'autre)

@@ -1,0 +1,34 @@
+# ============================================================
+#  .htaccess RACINE DU PROJET (redirection vers public/)
+# ============================================================
+#
+#  RÔLE : faire fonctionner le site quand la racine web est le
+#  DOSSIER DU PROJET (cas classique XAMPP : C:/xampp/htdocs/projet-web).
+#
+#  On n'expose jamais app/, config/ ou database/ : seuls les
+#  fichiers réellement publics (ceux de public/) sont servis,
+#  et toutes les autres URL sont envoyées dans public/index.php
+#  (le « front controller » du MVC).
+#
+#  REMARQUE : le serveur intégré de PHP (php -S) ne lit PAS ce
+#  fichier, il utilise server.php qui joue exactement le même rôle.
+# ============================================================
+
+RewriteEngine On
+
+# --- ÉTAPE 1 : les VRAIS FICHIERS sont servis normalement.
+# (exemples : /public/css/style.css, /public/logo.png)
+# ATTENTION : on ne teste que les FICHIERS, pas les dossiers.
+# Sinon la racine "/projet-web/" (un dossier) serait listée par
+# Apache au lieu d'afficher l'application.
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+#  "-" = ne rien réécrire : on laisse Apache servir la ressource.
+
+# --- ÉTAPE 2 : tout le reste est une ROUTE MVC.
+# On l'envoie vers public/index.php, qui chargera le routeur.
+# On lui transmet l'URL demandée dans le paramètre __path
+# (ex : "/projet-web/orders/edit?id=3" → __path=orders/edit).
+# C'est le seul moyen fiable de connaître l'URL d'origine, car
+# Apache "oublie" le sous-dossier lors de ses réécritures internes.
+RewriteRule ^(.*)$ public/index.php?__path=$1 [QSA,L]
