@@ -17,6 +17,13 @@
  *   - update()  : enregistrer les modifications
  *   - destroy() : supprimer un produit
  *
+ *  RBAC (même pattern que UserController) :
+ *   - Lecture (index, show, catalog) → Auth::requireLogin()  (tout compte connecté)
+ *   - Écriture (create…destroy)      → Auth::requireAdmin() (admin uniquement → 403 sinon)
+ *
+ *  Catalogue utilisateur :
+ *   - catalog() : GET /products-user — vitrine lecture seule (tous connectés)
+ *
  *  Catégories (feature associée) :
  *   - filtre index via ?category=id
  *   - select category_id sur create / edit / store / update
@@ -81,6 +88,42 @@ class ProductController extends Controller
 
     /**
      * ------------------------------------------------------------
+     * CATALOGUE PRODUITS (URL : GET /products-user)
+     * ------------------------------------------------------------
+     * Vitrine lecture seule pour tout utilisateur connecté
+     * (admin ou user). Réutilise Product::search() + Category.
+     * Vue : app/View/products/catalog.php
+     */
+    public function catalog(): void
+    {
+        // Lecture : connexion obligatoire, pas besoin d'être admin.
+        Auth::requireLogin();
+
+        $search = (string) $this->query('search', '');
+        $page   = max(1, (int) $this->query('page', 1));
+
+        // Filtre catégorie optionnel (?category=id).
+        $categoryId = (int) $this->query('category', 0);
+        $categoryId = $categoryId > 0 ? $categoryId : null;
+
+        $productModel  = new Product();
+        $resultat      = $productModel->search($search, $page, 12, $categoryId, '');
+        $categoryModel = new Category();
+
+        $this->render('products/catalog', [
+            'products'         => $resultat['items'],
+            'total'            => $resultat['total'],
+            'pages'            => $resultat['pages'],
+            'page'             => $resultat['page'],
+            'search'           => $search,
+            'categories'       => $categoryModel->allOrdered(),
+            'activeCategoryId' => $categoryId,
+            'title'            => 'Catalogue produits',
+        ]);
+    }
+
+    /**
+     * ------------------------------------------------------------
      * FORMULAIRE DE CRÉATION  (URL : GET /products/create)
      * ------------------------------------------------------------
      * Affiche un formulaire vide. "old" servira à réinjecter
@@ -88,7 +131,8 @@ class ProductController extends Controller
      */
     public function create(): void
     {
-        Auth::requireLogin();
+        // RBAC : création réservée aux administrateurs (sinon page 403).
+        Auth::requireAdmin();
 
         $this->render('products/create', [
             'old'        => [], // formulaire neuf : aucune valeur préremplie
@@ -106,7 +150,8 @@ class ProductController extends Controller
      */
     public function store(): void
     {
-        Auth::requireLogin();
+        // RBAC : enregistrement réservé aux administrateurs.
+        Auth::requireAdmin();
 
         // Sécurité : seuls les vrais POST sont acceptés.
         if (!$this->isPost()) {
@@ -208,7 +253,8 @@ class ProductController extends Controller
      */
     public function edit(): void
     {
-        Auth::requireLogin();
+        // RBAC : formulaire de modification réservé aux administrateurs.
+        Auth::requireAdmin();
 
         $product = $this->findOr404();
 
@@ -226,7 +272,8 @@ class ProductController extends Controller
      */
     public function update(): void
     {
-        Auth::requireLogin();
+        // RBAC : mise à jour réservée aux administrateurs.
+        Auth::requireAdmin();
 
         if (!$this->isPost()) {
             $this->redirect('/products');
@@ -304,7 +351,8 @@ class ProductController extends Controller
      */
     public function destroy(): void
     {
-        Auth::requireLogin();
+        // RBAC : suppression réservée aux administrateurs.
+        Auth::requireAdmin();
 
         if (!$this->isPost()) {
             $this->redirect('/products');

@@ -156,7 +156,12 @@ CREATE TABLE orders (
 INSERT INTO users (id, name, email, password, role) VALUES
     (1, 'Administrateur Demo', 'admin@ascg.fr',
      '$2y$10$GanD1bpzEtFgCiIu6U0sm./W.e94S14Zokr9MPA.792k.cT6FsKg2',
-     'admin');
+     'admin'),
+    -- Compte utilisateur simple (rôle user) pour tester le RBAC lecture seule.
+    -- Mot de passe en clair : "password123" (même hachage que l'admin).
+    (2, 'Utilisateur Demo', 'user@example.com',
+     '$2y$10$GanD1bpzEtFgCiIu6U0sm./W.e94S14Zokr9MPA.792k.cT6FsKg2',
+     'user');
 
 -- On insère quelques commandes d'exemple pour remplir le dashboard.
 INSERT INTO orders (reference, client, email, date_commande, montant, statut, description, user_id) VALUES

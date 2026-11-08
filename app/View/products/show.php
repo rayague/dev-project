@@ -29,6 +29,8 @@ $product = $product ?? [];
             </a>
         </div>
 
+        <?php // RBAC : actions d'écriture réservées aux administrateurs. ?>
+        <?php if (Auth::isAdmin()): ?>
         <div class="flex flex-wrap items-center gap-2">
             <a href="<?= url('/products/edit') ?>?id=<?= (int) ($product['id'] ?? 0) ?>" class="btn btn-warn">Modifier</a>
 
@@ -40,6 +42,7 @@ $product = $product ?? [];
                 <button type="submit" class="btn btn-danger">Supprimer</button>
             </form>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- ============================================================

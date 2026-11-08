@@ -17,6 +17,9 @@
  *   - dropdown filtre : 6 catégories
  *   - remise à zéro du filtre (toutes les catégories)
  *   - tri / regroupement ?sort=category (A→Z)
+ *   - RBAC : utilisateur simple bloqué sur /products/create (403)
+ *   - RBAC : admin peut ouvrir /products/create
+ *   - Catalogue /products-user accessible à un utilisateur simple
  *
  *  Chaque test se connecte d'abord (Auth::requireLogin côté app).
  * ============================================================
@@ -47,10 +50,16 @@ final class ProductTest extends SeleniumTest
     /** Liste des produits (filtre catégorie : ?category=id). */
     private const PRODUCTS_URL = self::BASE_URL . '/products';
 
+    /** Catalogue vitrine (lecture seule) — GET /products-user. */
+    private const CATALOG_URL = self::BASE_URL . '/products-user';
+
     /** Compte admin de démonstration (schema.sql). */
     private const DEMO_EMAIL = 'admin@ascg.fr';
 
-    /** Mot de passe en clair du compte démo. */
+    /** Compte utilisateur simple de démonstration (rôle user). */
+    private const USER_EMAIL = 'user@example.com';
+
+    /** Mot de passe en clair des comptes de démonstration. */
     private const DEMO_PASSWORD = 'password123';
 
     /**
@@ -349,8 +358,9 @@ final class ProductTest extends SeleniumTest
         $this->createProductViaUi($tablette, 'Sort tab', '30.00', '1', 5);
         $this->createProductViaUi($camera, 'Sort cam', '40.00', '1', 6);
 
-        // Onglet / URL de tri alphabétique par catégorie.
-        $this->driver->get(self::PRODUCTS_URL . '?sort=category');
+        // Tri A→Z + recherche sur le suffixe unique (évite la pagination saturée).
+        $query = http_build_query(['sort' => 'category', 'search' => $suffix]);
+        $this->driver->get(self::PRODUCTS_URL . '?' . $query);
         (new WebDriverWait($this->driver, 8))->until(
             WebDriverExpectedCondition::presenceOfElementLocated(WebDriverBy::cssSelector('table.tbl'))
         );
@@ -408,11 +418,97 @@ final class ProductTest extends SeleniumTest
 
     /**
      * ------------------------------------------------------------
-     * loginAsDemo : connexion admin de démonstration
+     * testRegularUserCannotAccessProductCreate
      * ------------------------------------------------------------
-     * Remplit e-mail / mot de passe puis attend la sortie de /login.
+     * RBAC : un compte rôle « user » qui ouvre /products/create
+     * doit recevoir une page 403 (Accès interdit), pas le formulaire.
      */
-    private function loginAsDemo(): void
+    public function testRegularUserCannotAccessProductCreate(): void
+    {
+        // Compte démo user@example.com (rôle user) — ou inscription de secours.
+        $this->loginAsRegularUser();
+
+        $this->driver->get(self::PRODUCTS_URL . '/create');
+
+        (new WebDriverWait($this->driver, 8))->until(
+            function () {
+                $src = $this->driver->getPageSource();
+
+                return str_contains($src, '403') || str_contains($src, 'Accès interdit');
+            }
+        );
+
+        $page = $this->driver->getPageSource();
+        $this->assertTrue(
+            str_contains($page, '403') || str_contains($page, 'Accès interdit'),
+            'Un utilisateur non-admin devait être refusé (403) sur /products/create.'
+        );
+        // Le formulaire de création ne doit pas être présent.
+        $this->assertEmpty(
+            $this->driver->findElements(WebDriverBy::cssSelector('form[method="POST"][action="/products"]'))
+        );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * testRegularUserCanAccessProductCatalog
+     * ------------------------------------------------------------
+     * Un utilisateur simple connecté doit voir le catalogue
+     * GET /products-user (titre + contenu, sans formulaire create).
+     */
+    public function testRegularUserCanAccessProductCatalog(): void
+    {
+        $this->loginAsRegularUser();
+
+        $this->driver->get(self::CATALOG_URL);
+
+        (new WebDriverWait($this->driver, 8))->until(
+            WebDriverExpectedCondition::urlContains('/products-user')
+        );
+
+        $page = $this->driver->getPageSource();
+        $this->assertStringContainsString('/products-user', strtolower($this->driver->getCurrentURL()));
+        $this->assertStringContainsString('Catalogue', $page);
+        // Pas de formulaire d'écriture produits sur la vitrine.
+        $this->assertEmpty(
+            $this->driver->findElements(WebDriverBy::cssSelector('form[method="POST"][action="/products"]'))
+        );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * testAdminCanAccessProductCreate
+     * ------------------------------------------------------------
+     * RBAC : un administrateur atteint bien le formulaire de création.
+     */
+    public function testAdminCanAccessProductCreate(): void
+    {
+        $this->loginAsDemo();
+
+        $this->driver->get(self::PRODUCTS_URL . '/create');
+
+        (new WebDriverWait($this->driver, 8))->until(
+            WebDriverExpectedCondition::presenceOfElementLocated(
+                WebDriverBy::cssSelector('input[name="name"]')
+            )
+        );
+
+        $this->assertStringContainsString('/products/create', strtolower($this->driver->getCurrentURL()));
+        $this->assertNotEmpty(
+            $this->driver->findElements(
+                WebDriverBy::cssSelector('form[method="POST"][action="/products"]')
+            )
+        );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * loginAsRegularUser : connexion compte user@example.com
+     * ------------------------------------------------------------
+     * Utilise le compte démo rôle « user » (schema / migration).
+     * Si la connexion échoue, crée un compte via /register en secours.
+     */
+    private function loginAsRegularUser(): void
     {
         $this->driver->get(self::LOGIN_URL);
 
@@ -424,11 +520,98 @@ final class ProductTest extends SeleniumTest
 
         $email = $this->driver->findElement(WebDriverBy::cssSelector('input[name="email"]'));
         $email->clear();
-        $email->sendKeys(self::DEMO_EMAIL);
+        $email->sendKeys(self::USER_EMAIL);
 
         $password = $this->driver->findElement(WebDriverBy::cssSelector('input[name="password"]'));
         $password->clear();
         $password->sendKeys(self::DEMO_PASSWORD);
+
+        $this->driver->findElement(WebDriverBy::cssSelector('button[type="submit"]'))->click();
+
+        try {
+            (new WebDriverWait($this->driver, 5))->until(
+                WebDriverExpectedCondition::not(
+                    WebDriverExpectedCondition::urlContains('/login')
+                )
+            );
+        } catch (\Throwable $e) {
+            // Secours : inscription publique (rôle user forcé).
+            $this->registerAsRegularUser();
+        }
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * registerAsRegularUser : crée un compte « user » via /register
+     * ------------------------------------------------------------
+     * L'inscription publique force le rôle user (pas d'élévation).
+     */
+    private function registerAsRegularUser(): void
+    {
+        $suffix = uniqid('', false);
+        $email  = 'user.selenium.' . $suffix . '@example.test';
+        $pass   = 'testpass123';
+
+        $this->driver->get(self::BASE_URL . '/register');
+
+        (new WebDriverWait($this->driver, 8))->until(
+            WebDriverExpectedCondition::presenceOfElementLocated(
+                WebDriverBy::cssSelector('input[name="email"]')
+            )
+        );
+
+        $this->driver->findElement(WebDriverBy::cssSelector('input[name="name"]'))
+            ->sendKeys('User Selenium ' . $suffix);
+        $this->driver->findElement(WebDriverBy::cssSelector('input[name="email"]'))
+            ->sendKeys($email);
+        $this->driver->findElement(WebDriverBy::cssSelector('input[name="password"]'))
+            ->sendKeys($pass);
+        $this->driver->findElement(WebDriverBy::cssSelector('input[name="password_confirmation"]'))
+            ->sendKeys($pass);
+
+        $this->driver->findElement(WebDriverBy::cssSelector('button[type="submit"]'))->click();
+
+        // Après inscription : connexion auto + redirection hors /register.
+        (new WebDriverWait($this->driver, 8))->until(
+            WebDriverExpectedCondition::not(
+                WebDriverExpectedCondition::urlContains('/register')
+            )
+        );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * loginAsDemo : connexion admin de démonstration
+     * ------------------------------------------------------------
+     * Remplit e-mail / mot de passe puis attend la sortie de /login.
+     */
+    private function loginAsDemo(): void
+    {
+        $this->loginWithCredentials(self::DEMO_EMAIL, self::DEMO_PASSWORD);
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * loginWithCredentials : soumet le formulaire /login
+     * ------------------------------------------------------------
+     */
+    private function loginWithCredentials(string $emailValue, string $passwordValue): void
+    {
+        $this->driver->get(self::LOGIN_URL);
+
+        (new WebDriverWait($this->driver, 8))->until(
+            WebDriverExpectedCondition::presenceOfElementLocated(
+                WebDriverBy::cssSelector('input[name="email"]')
+            )
+        );
+
+        $email = $this->driver->findElement(WebDriverBy::cssSelector('input[name="email"]'));
+        $email->clear();
+        $email->sendKeys($emailValue);
+
+        $password = $this->driver->findElement(WebDriverBy::cssSelector('input[name="password"]'));
+        $password->clear();
+        $password->sendKeys($passwordValue);
 
         $this->driver->findElement(WebDriverBy::cssSelector('button[type="submit"]'))->click();
 

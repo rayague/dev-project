@@ -60,10 +60,13 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
             <p class="mt-1 text-sm text-slate-400"><?= (int) $total ?> produit(s) trouvé(s)</p>
         </div>
 
+        <?php // RBAC : bouton de création visible uniquement pour les administrateurs. ?>
+        <?php if (Auth::isAdmin()): ?>
         <a href="<?= url('/products/create') ?>" class="btn btn-primary anim-fade-up d-1">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-4 w-4"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             Nouveau produit
         </a>
+        <?php endif; ?>
     </div>
 
     <!-- ============================================================
@@ -200,8 +203,9 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
                                 <td class="whitespace-nowrap text-right text-slate-300"><?= (int) $product['stock'] ?></td>
                                 <td class="whitespace-nowrap">
                                     <div class="flex items-center justify-end gap-1.5">
-                                        <!-- Voir / Modifier / Supprimer (POST + CSRF) -->
+                                        <!-- Voir : tous les connectés ; Modifier / Supprimer : admin seulement (RBAC). -->
                                         <a href="<?= url('/products/show') ?>?id=<?= (int) $product['id'] ?>" class="btn btn-ghost btn-sm !py-2">Voir</a>
+                                        <?php if (Auth::isAdmin()): ?>
                                         <a href="<?= url('/products/edit') ?>?id=<?= (int) $product['id'] ?>" class="btn btn-warn btn-sm !py-2">Modifier</a>
                                         <form method="POST" action="<?= url('/products/delete') ?>"
                                               onsubmit="return confirm('Supprimer définitivement ce produit ?');">
@@ -209,6 +213,7 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
                                             <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
                                             <button type="submit" class="btn btn-danger btn-sm !py-2">Supprimer</button>
                                         </form>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>

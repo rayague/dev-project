@@ -95,20 +95,27 @@ $router->post('/users/delete', 'UserController', 'destroy');
 // ----------------------------------------------------------------
 // CRUD DES PRODUITS
 // ----------------------------------------------------------------
+// RBAC (contrôle réel dans ProductController, comme UserController) :
+//  - Lecture  : GET /products, /products/show → tout utilisateur connecté
+//  - Écriture : create / store / edit / update / destroy → admin seulement
+//    (Auth::requireAdmin → 403 si rôle = user)
 
-// LISTER les produits (recherche + pagination).
+// LISTER les produits (recherche + pagination) — lecture.
 $router->get('/products', 'ProductController', 'index');
 
-// Formulaire de création + traitement.
+// Catalogue vitrine (lecture seule) — tout utilisateur connecté.
+$router->get('/products-user', 'ProductController', 'catalog');
+
+// Formulaire de création + traitement — ADMIN uniquement.
 $router->get('/products/create', 'ProductController', 'create');
 $router->post('/products', 'ProductController', 'store');
 
-// Détails d'un produit, ex : /products/show?id=3
+// Détails d'un produit, ex : /products/show?id=3 — lecture.
 $router->get('/products/show', 'ProductController', 'show');
 
-// Formulaire de modification + traitement.
+// Formulaire de modification + traitement — ADMIN uniquement.
 $router->get('/products/edit', 'ProductController', 'edit');
 $router->post('/products/update', 'ProductController', 'update');
 
-// Suppression d'un produit.
+// Suppression d'un produit — ADMIN uniquement.
 $router->post('/products/delete', 'ProductController', 'destroy');
