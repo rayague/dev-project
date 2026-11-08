@@ -46,6 +46,7 @@ class Product extends Model
      * @param  int      $page       Page courante (commence à 1)
      * @param  int      $perPage    Nombre d'éléments par page
      * @param  int|null $categoryId Filtre optionnel sur category_id
+     * @param  string   $sort       '' = récents ; 'category' = nom catégorie A→Z
      * @return array{
      *   items: list<array>,
      *   total: int,
@@ -53,8 +54,14 @@ class Product extends Model
      *   page: int
      * }
      */
-    public function search(string $search = '', int $page = 1, int $perPage = 10, ?int $categoryId = null): array
-    {
+    public function search(
+        string $search = '',
+        int $page = 1,
+        int $perPage = 10,
+        ?int $categoryId = null,
+        string $sort = ''
+    ): array {
+
         // Conditions SQL optionnelles + paramètres liés (requêtes préparées).
         $conditions = [];
         $params     = [];
@@ -88,13 +95,21 @@ class Product extends Model
         $offset = ($page - 1) * $perPage;
         $pages  = max(1, (int) ceil($total / $perPage));
 
+        // Tri : par défaut les plus récents ; ?sort=category → libellé A→Z
+        // (sans catégorie en dernier grâce à IS NULL).
+        if ($sort === 'category') {
+            $orderBy = ' ORDER BY (c.name IS NULL) ASC, c.name ASC, p.name ASC, p.id ASC';
+        } else {
+            $orderBy = ' ORDER BY p.created_at DESC, p.id DESC';
+        }
+
         // LEFT JOIN categories : category_name même si category_id est NULL.
         // (INNER JOIN exclurait les produits sans catégorie.)
         $sql = 'SELECT p.*, c.name AS category_name'
              . ' FROM `products` p'
              . ' LEFT JOIN `categories` c ON c.id = p.category_id'
              . $where
-             . ' ORDER BY p.created_at DESC, p.id DESC'
+             . $orderBy
              . ' LIMIT ' . (int) $perPage
              . ' OFFSET ' . (int) $offset;
 

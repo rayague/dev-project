@@ -16,6 +16,7 @@
  *   - $search           : terme de recherche en cours
  *   - $categories       : liste des catégories (filtre)
  *   - $activeCategoryId : id de catégorie filtrée (ou null)
+ *   - $sort             : '' (récents) ou 'category' (A→Z + groupes)
  * ============================================================
  */
 
@@ -27,8 +28,9 @@ $page             = $page ?? 1;
 $search           = $search ?? '';
 $categories       = $categories ?? []; // options du <select name="category">
 $activeCategoryId = $activeCategoryId ?? null; // id filtré, ou null = toutes
+$sort             = $sort ?? ''; // '' | 'category'
 
-// Query string de pagination : conserve search + category actifs.
+// Query string de pagination / onglets : conserve search + category + sort.
 $queryParams = [];
 if ($search !== '') {
     $queryParams['search'] = $search;
@@ -36,6 +38,15 @@ if ($search !== '') {
 if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
     $queryParams['category'] = (int) $activeCategoryId;
 }
+if ($sort === 'category') {
+    $queryParams['sort'] = 'category';
+}
+
+// Liens des onglets de tri (sans page : on repart à la page 1).
+$tabBase = $queryParams;
+unset($tabBase['sort']);
+$tabRecentUrl   = url('/products') . (($q = http_build_query($tabBase)) !== '' ? '?' . $q : '');
+$tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase, ['sort' => 'category']));
 ?>
 
 <div class="mx-auto w-full max-w-6xl">
@@ -59,6 +70,10 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
          FORMULAIRE DE RECHERCHE + FILTRE CATÉGORIE (GET → /products)
          ============================================================ -->
     <form method="GET" action="<?= url('/products') ?>" class="glass-card anim-fade-up d-1 mb-6 p-4 sm:p-5">
+        <!-- Conserve le tri actif lors d'un filtre recherche / catégorie -->
+        <?php if ($sort === 'category'): ?>
+            <input type="hidden" name="sort" value="category">
+        <?php endif; ?>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-5">
             <div class="sm:col-span-2">
                 <label for="search" class="field-label !text-xs">Rechercher</label>
@@ -98,6 +113,25 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
     </form>
 
     <!-- ============================================================
+         ONGLETS DE TRI : récents | par catégorie (A→Z)
+         ============================================================ -->
+    <div class="anim-fade-up d-1 mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tri des produits">
+        <a href="<?= e($tabRecentUrl) ?>"
+           role="tab"
+           aria-selected="<?= $sort !== 'category' ? 'true' : 'false' ?>"
+           class="btn btn-sm !py-2 <?= $sort !== 'category' ? 'btn-primary' : 'btn-ghost' ?>">
+            Récents
+        </a>
+        <a href="<?= e($tabCategoryUrl) ?>"
+           role="tab"
+           data-sort="category"
+           aria-selected="<?= $sort === 'category' ? 'true' : 'false' ?>"
+           class="btn btn-sm !py-2 <?= $sort === 'category' ? 'btn-primary' : 'btn-ghost' ?>">
+            Par catégorie
+        </a>
+    </div>
+
+    <!-- ============================================================
          TABLEAU DES PRODUITS
          ============================================================ -->
     <div class="glass-card glass-card--flat anim-fade-up d-2 overflow-hidden">
@@ -125,8 +159,28 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
                             </td>
                         </tr>
                     <?php else: ?>
+                        <?php
+                        // En mode sort=category : une ligne d'en-tête par groupe.
+                        $groupePrecedent = null;
+                        ?>
                         <?php foreach ($products as $i => $product): ?>
-                            <tr class="anim-fade-in" <?= $i > 0 ? 'style="animation-delay:' . min($i * 30, 240) . 'ms"' : '' ?>>
+                            <?php if ($sort === 'category'): ?>
+                                <?php
+                                $groupeCourant = $product['category_name'] ?? '';
+                                if ($groupeCourant === '') {
+                                    $groupeCourant = 'Sans catégorie';
+                                }
+                                if ($groupeCourant !== $groupePrecedent):
+                                    $groupePrecedent = $groupeCourant;
+                                ?>
+                                    <tr class="category-group" data-category-group="<?= e($groupeCourant) ?>">
+                                        <td colspan="5" class="!bg-white/[.04] font-display text-sm font-semibold tracking-wide text-emerald-300">
+                                            <?= e($groupeCourant) ?>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            <tr class="anim-fade-in" data-product-name="<?= e($product['name']) ?>" <?= $i > 0 ? 'style="animation-delay:' . min($i * 30, 240) . 'ms"' : '' ?>>
                                 <td>
                                     <a href="<?= url('/products/show') ?>?id=<?= (int) $product['id'] ?>"
                                        class="font-semibold text-white transition hover:text-emerald-300">
@@ -169,7 +223,7 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
              ============================================================ -->
         <nav class="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-3.5">
             <?php
-            // Liens Précédent / Suivant : gardent search et category.
+            // Liens Précédent / Suivant : gardent search, category et sort.
             $prevQuery = http_build_query(array_merge($queryParams, ['page' => $page - 1]));
             $nextQuery = http_build_query(array_merge($queryParams, ['page' => $page + 1]));
             ?>
