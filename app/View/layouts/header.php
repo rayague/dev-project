@@ -112,6 +112,10 @@ $estActif = function (string $prefixe) use ($routeCourante): bool {
                         <svg class="nav-ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
                         <span>Commandes</span>
                     </a>
+                    <a href="<?= url('/products') ?>" class="nav-item <?= $estActif('/products') ? 'active' : '' ?>">
+                        <svg class="nav-ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                        <span>Produits</span>
+                    </a>
                     <?php if (Auth::isAdmin()): ?>
                     <a href="<?= url('/users') ?>" class="nav-item <?= $estActif('/users') ? 'active' : '' ?>">
                         <svg class="nav-ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -188,6 +192,7 @@ $estActif = function (string $prefixe) use ($routeCourante): bool {
                 <nav class="flex gap-2 border-b border-white/5 bg-white/[.03] px-4 py-2.5 md:hidden">
                     <a href="<?= url('/dashboard') ?>" class="nav-item !px-3 !py-2 flex-1 justify-center !text-sm <?= $estActif('/') ? 'active' : '' ?>">Dashboard</a>
                     <a href="<?= url('/orders') ?>" class="nav-item !px-3 !py-2 flex-1 justify-center !text-sm <?= $estActif('/orders') ? 'active' : '' ?>">Commandes</a>
+                    <a href="<?= url('/products') ?>" class="nav-item !px-3 !py-2 flex-1 justify-center !text-sm <?= $estActif('/products') ? 'active' : '' ?>">Produits</a>
                     <?php if (Auth::isAdmin()): ?>
                     <a href="<?= url('/users') ?>" class="nav-item !px-3 !py-2 flex-1 justify-center !text-sm <?= $estActif('/users') ? 'active' : '' ?>">Utilisateurs</a>
                     <?php else: ?>

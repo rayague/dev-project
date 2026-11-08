@@ -91,3 +91,24 @@ $router->post('/users/update', 'UserController', 'update'); // Traitement modifi
 
 // Suppression d'un utilisateur.
 $router->post('/users/delete', 'UserController', 'destroy');
+
+// ----------------------------------------------------------------
+// CRUD DES PRODUITS
+// ----------------------------------------------------------------
+
+// LISTER les produits (recherche + pagination).
+$router->get('/products', 'ProductController', 'index');
+
+// Formulaire de création + traitement.
+$router->get('/products/create', 'ProductController', 'create');
+$router->post('/products', 'ProductController', 'store');
+
+// Détails d'un produit, ex : /products/show?id=3
+$router->get('/products/show', 'ProductController', 'show');
+
+// Formulaire de modification + traitement.
+$router->get('/products/edit', 'ProductController', 'edit');
+$router->post('/products/update', 'ProductController', 'update');
+
+// Suppression d'un produit.
+$router->post('/products/delete', 'ProductController', 'destroy');
