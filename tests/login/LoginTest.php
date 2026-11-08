@@ -6,10 +6,14 @@
  * ============================================================
  *
  *  Scénarios couverts :
- *   - page de login atteignable
- *   - connexion réussie (identifiants démo)
+ *   - page de login atteignable + formulaire présent
+ *   - connexion réussie (identifiants démo schema.sql)
  *   - échec avec mauvais mot de passe
  *   - échec avec champs vides (validation serveur)
+ *
+ *  Hérite de SeleniumTest (Chrome headless / incognito).
+ *  Sert aussi de prérequis fonctionnel aux tests produits :
+ *  le CRUD /products exige une session authentifiée.
  * ============================================================
  */
 
@@ -26,17 +30,21 @@ use Facebook\WebDriver\WebDriverWait;
  */
 final class LoginTest extends SeleniumTest
 {
-    /** URL de la page de connexion. */
+    /** URL de la page de connexion de l'application. */
     private const APP_URL = 'http://localhost:8000/login';
 
-    /** Compte de démonstration (schema.sql). */
+    /** E-mail du compte de démonstration (schema.sql). */
     private const DEMO_EMAIL = 'admin@ascg.fr';
 
+    /** Mot de passe en clair du compte de démonstration. */
     private const DEMO_PASSWORD = 'password123';
 
     /**
-     * Vérifie que la page de connexion est atteignable
-     * et que le formulaire est présent.
+     * ------------------------------------------------------------
+     * testLoginPageIsReachable
+     * ------------------------------------------------------------
+     * Ouvre /login et vérifie la présence des champs e-mail,
+     * mot de passe et du bouton « Se connecter ».
      */
     public function testLoginPageIsReachable(): void
     {
@@ -63,7 +71,11 @@ final class LoginTest extends SeleniumTest
     }
 
     /**
-     * Connexion réussie avec les identifiants de démonstration.
+     * ------------------------------------------------------------
+     * testSuccessfulLoginWithValidCredentials
+     * ------------------------------------------------------------
+     * Soumet les identifiants démo valides et attend une
+     * redirection hors de /login (tableau de bord / racine).
      */
     public function testSuccessfulLoginWithValidCredentials(): void
     {
@@ -87,7 +99,11 @@ final class LoginTest extends SeleniumTest
     }
 
     /**
-     * Échec de connexion avec un mauvais mot de passe.
+     * ------------------------------------------------------------
+     * testFailedLoginWithWrongPassword
+     * ------------------------------------------------------------
+     * Soumet un mot de passe incorrect et vérifie le message
+     * d'erreur global + le maintien sur /login.
      */
     public function testFailedLoginWithWrongPassword(): void
     {
@@ -113,10 +129,11 @@ final class LoginTest extends SeleniumTest
     }
 
     /**
-     * Échec de connexion avec des champs vides (validation serveur).
-     *
-     * Les attributs HTML5 "required" sont retirés via JS pour laisser
-     * le serveur répondre (sinon Chrome bloque l'envoi du formulaire).
+     * ------------------------------------------------------------
+     * testFailedLoginWithEmptyFields
+     * ------------------------------------------------------------
+     * Soumet le formulaire vide après avoir retiré les attributs
+     * HTML5 "required", pour laisser la validation PHP s'afficher.
      */
     public function testFailedLoginWithEmptyFields(): void
     {
@@ -148,7 +165,10 @@ final class LoginTest extends SeleniumTest
     }
 
     /**
-     * Saisit e-mail et mot de passe dans le formulaire de login.
+     * ------------------------------------------------------------
+     * fillLoginForm : saisit e-mail et mot de passe
+     * ------------------------------------------------------------
+     * Helper réutilisé par les scénarios de succès / échec.
      */
     private function fillLoginForm(string $email, string $password): void
     {
@@ -162,7 +182,9 @@ final class LoginTest extends SeleniumTest
     }
 
     /**
-     * Clique sur le bouton « Se connecter ».
+     * ------------------------------------------------------------
+     * submitLoginForm : clique sur « Se connecter »
+     * ------------------------------------------------------------
      */
     private function submitLoginForm(): void
     {

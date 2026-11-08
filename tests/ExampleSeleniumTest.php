@@ -5,17 +5,26 @@ declare(strict_types=1);
 require_once __DIR__ . '/SeleniumTest.php';
 
 /**
- * Point d'entrée d'exemple pour les tests Selenium GestCommandes.
+ * ============================================================
+ *  TEST D'EXEMPLE : ExampleSeleniumTest
+ * ============================================================
  *
- * La logique WebDriver (Chrome incognito / headless, ChromeDriver 9515,
- * ChromeOptions::CAPABILITY) est centralisée dans SeleniumTest.
- * Les scénarios concrets vivent dans des sous-dossiers
- * (ex. tests/login/LoginTest.php).
+ *  Smoke test minimal qui prouve que la classe de base
+ *  SeleniumTest ouvre bien une session WebDriver.
+ *
+ *  Les scénarios métier sont ailleurs :
+ *   - tests/login/LoginTest.php
+ *   - tests/products/ProductTest.php (CRUD + catégories)
+ * ============================================================
  */
 final class ExampleSeleniumTest extends SeleniumTest
 {
     /**
-     * Smoke test : vérifie que la session WebDriver héritée est bien ouverte.
+     * ------------------------------------------------------------
+     * testDriverSessionIsAvailable
+     * ------------------------------------------------------------
+     * Vérifie uniquement que $this->driver a été créé par setUp().
+     * Ne navigue vers aucune page de l'application.
      */
     public function testDriverSessionIsAvailable(): void
     {

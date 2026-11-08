@@ -9,13 +9,15 @@
  *  Envoi en POST vers /products → ProductController::store().
  *
  *  VARIABLES REÇUES :
- *   - $old    : valeurs déjà saisies (après une erreur de validation)
- *   - $errors : messages d'erreur par champ
+ *   - $old        : valeurs déjà saisies (après une erreur de validation)
+ *   - $errors     : messages d'erreur par champ
+ *   - $categories : liste pour le select category_id
  * ============================================================
  */
 
-$old    = $old ?? [];
-$errors = $errors ?? [];
+$old        = $old ?? [];
+$errors     = $errors ?? [];
+$categories = $categories ?? []; // peuplé par ProductController::create / store
 
 // Récupère une ancienne valeur de champ (ou une valeur par défaut).
 $valeur = function (string $champ, string $defaut = '') use ($old): string {
@@ -55,6 +57,25 @@ $erreurDe = function (string $champ) use ($errors): string {
                        placeholder="Nom du produit">
                 <?php if ($erreurDe('name') !== ''): ?>
                     <p class="field-err"><?= e($erreurDe('name')) ?></p>
+                <?php endif; ?>
+            </div>
+
+            <!-- Catégorie facultative → products.category_id (NULL si « Aucune ») -->
+            <div>
+                <label for="category_id" class="field-label">Catégorie <span class="font-normal text-slate-500">(facultatif)</span></label>
+                <select id="category_id" name="category_id"
+                        class="input <?= $erreurDe('category_id') !== '' ? 'input--err' : '' ?>">
+                    <option value="">— Aucune —</option>
+                    <?php foreach ($categories as $categorie): ?>
+                        <!-- Resélectionne la valeur après une erreur de validation -->
+                        <option value="<?= (int) $categorie['id'] ?>"
+                            <?= (string) $valeur('category_id') === (string) $categorie['id'] ? 'selected' : '' ?>>
+                            <?= e($categorie['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if ($erreurDe('category_id') !== ''): ?>
+                    <p class="field-err"><?= e($erreurDe('category_id')) ?></p>
                 <?php endif; ?>
             </div>
 

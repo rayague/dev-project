@@ -9,7 +9,7 @@
  *  et boutons d'action (Modifier / Supprimer).
  *
  *  VARIABLES REÇUES :
- *   - $product : tableau associatif de la ligne SQL
+ *   - $product : ligne SQL + category_name (ajouté par le contrôleur)
  * ============================================================
  */
 
@@ -58,6 +58,15 @@ $product = $product ?? [];
             <div class="flex items-center justify-between px-6 py-4">
                 <dt class="text-sm font-medium text-slate-400">Nom</dt>
                 <dd class="text-sm font-semibold text-white"><?= e($product['name'] ?? '') ?></dd>
+            </div>
+            <!-- Libellé via Product::getCategoryName(category_id) -->
+            <div class="flex items-center justify-between px-6 py-4">
+                <dt class="text-sm font-medium text-slate-400">Catégorie</dt>
+                <dd class="text-sm font-semibold text-white">
+                    <?= !empty($product['category_name'])
+                        ? e($product['category_name'])
+                        : '<span class="font-normal text-slate-500">—</span>' ?>
+                </dd>
             </div>
             <div class="flex items-center justify-between px-6 py-4">
                 <dt class="text-sm font-medium text-slate-400">Prix</dt>

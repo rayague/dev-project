@@ -5,24 +5,37 @@
  * ============================================================
  *
  *  RÔLE DANS LE MVC :
- *  Affiche le tableau des produits avec recherche, pagination
- *  et actions (Voir / Modifier / Supprimer).
+ *  Affiche le tableau des produits avec recherche, filtre
+ *  catégorie, pagination et actions (Voir / Modifier / Supprimer).
  *
  *  VARIABLES REÇUES (depuis ProductController::index) :
- *   - $products : lignes de la page courante
- *   - $total    : nombre total (filtre inclus)
- *   - $pages    : nombre de pages
- *   - $page     : page courante
- *   - $search   : terme de recherche en cours
+ *   - $products         : lignes de la page courante (+ category_name)
+ *   - $total            : nombre total (filtre inclus)
+ *   - $pages            : nombre de pages
+ *   - $page             : page courante
+ *   - $search           : terme de recherche en cours
+ *   - $categories       : liste des catégories (filtre)
+ *   - $activeCategoryId : id de catégorie filtrée (ou null)
  * ============================================================
  */
 
 // Valeurs par défaut si une variable manque (évite notices PHP).
-$products = $products ?? [];
-$total    = $total ?? 0;
-$pages    = $pages ?? 1;
-$page     = $page ?? 1;
-$search   = $search ?? '';
+$products         = $products ?? [];
+$total            = $total ?? 0;
+$pages            = $pages ?? 1;
+$page             = $page ?? 1;
+$search           = $search ?? '';
+$categories       = $categories ?? []; // options du <select name="category">
+$activeCategoryId = $activeCategoryId ?? null; // id filtré, ou null = toutes
+
+// Query string de pagination : conserve search + category actifs.
+$queryParams = [];
+if ($search !== '') {
+    $queryParams['search'] = $search;
+}
+if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
+    $queryParams['category'] = (int) $activeCategoryId;
+}
 ?>
 
 <div class="mx-auto w-full max-w-6xl">
@@ -43,11 +56,11 @@ $search   = $search ?? '';
     </div>
 
     <!-- ============================================================
-         FORMULAIRE DE RECHERCHE (GET → /products)
+         FORMULAIRE DE RECHERCHE + FILTRE CATÉGORIE (GET → /products)
          ============================================================ -->
     <form method="GET" action="<?= url('/products') ?>" class="glass-card anim-fade-up d-1 mb-6 p-4 sm:p-5">
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <div class="sm:col-span-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <div class="sm:col-span-2">
                 <label for="search" class="field-label !text-xs">Rechercher</label>
                 <div class="relative">
                     <span class="field-ic" aria-hidden="true">
@@ -58,6 +71,22 @@ $search   = $search ?? '';
                            class="input input--pad-ic">
                 </div>
             </div>
+
+            <!-- Filtre catégorie : GET ?category=id (vide = toutes) -->
+            <div class="sm:col-span-2">
+                <label for="category" class="field-label !text-xs">Catégorie</label>
+                <select id="category" name="category" class="input">
+                    <option value="">Toutes les catégories</option>
+                    <?php foreach ($categories as $categorie): ?>
+                        <!-- selected si ce filtre est celui de l'URL courante -->
+                        <option value="<?= (int) $categorie['id'] ?>"
+                            <?= (int) $activeCategoryId === (int) $categorie['id'] ? 'selected' : '' ?>>
+                            <?= e($categorie['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
             <div class="flex items-end gap-2">
                 <button type="submit" class="btn btn-primary w-full !py-2.5">Filtrer</button>
                 <!-- Remet la liste sans filtre -->
@@ -77,6 +106,8 @@ $search   = $search ?? '';
                 <thead>
                     <tr>
                         <th>Nom</th>
+                        <!-- Libellé issu du LEFT JOIN (category_name) -->
+                        <th>Catégorie</th>
                         <th class="text-right">Prix</th>
                         <th class="text-right">Stock</th>
                         <th class="text-right">Actions</th>
@@ -86,7 +117,7 @@ $search   = $search ?? '';
                     <?php if (count($products) === 0): ?>
                         <!-- Aucun résultat pour la recherche / base vide -->
                         <tr>
-                            <td colspan="4">
+                            <td colspan="5">
                                 <div class="empty-box">
                                     <p class="font-semibold text-white">Aucun produit trouvé</p>
                                     <p class="mt-1 text-xs text-slate-500">Créez un premier produit pour commencer.</p>
@@ -104,6 +135,12 @@ $search   = $search ?? '';
                                     <?php if (!empty($product['description'])): ?>
                                         <p class="mt-0.5 line-clamp-1 text-xs text-slate-500"><?= e($product['description']) ?></p>
                                     <?php endif; ?>
+                                </td>
+                                <td class="whitespace-nowrap text-slate-300">
+                                    <!-- Tiret si product.category_id est NULL -->
+                                    <?= !empty($product['category_name'])
+                                        ? e($product['category_name'])
+                                        : '<span class="text-slate-500">—</span>' ?>
                                 </td>
                                 <td class="whitespace-nowrap text-right font-semibold text-white"><?= money($product['price']) ?></td>
                                 <td class="whitespace-nowrap text-right text-slate-300"><?= (int) $product['stock'] ?></td>
@@ -131,8 +168,13 @@ $search   = $search ?? '';
              PAGINATION
              ============================================================ -->
         <nav class="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-3.5">
+            <?php
+            // Liens Précédent / Suivant : gardent search et category.
+            $prevQuery = http_build_query(array_merge($queryParams, ['page' => $page - 1]));
+            $nextQuery = http_build_query(array_merge($queryParams, ['page' => $page + 1]));
+            ?>
             <?php if ($page > 1): ?>
-                <a href="<?= url('/products') ?>?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>" class="btn btn-ghost btn-sm !py-2">Précédent</a>
+                <a href="<?= url('/products') ?>?<?= e($prevQuery) ?>" class="btn btn-ghost btn-sm !py-2">Précédent</a>
             <?php else: ?>
                 <span class="btn btn-sm !cursor-not-allowed border border-white/5 text-slate-600 !bg-white/[.02]">Précédent</span>
             <?php endif; ?>
@@ -143,7 +185,7 @@ $search   = $search ?? '';
             </span>
 
             <?php if ($page < $pages): ?>
-                <a href="<?= url('/products') ?>?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>" class="btn btn-ghost btn-sm !py-2">Suivant</a>
+                <a href="<?= url('/products') ?>?<?= e($nextQuery) ?>" class="btn btn-ghost btn-sm !py-2">Suivant</a>
             <?php else: ?>
                 <span class="btn btn-sm !cursor-not-allowed border border-white/5 text-slate-600 !bg-white/[.02]">Suivant</span>
             <?php endif; ?>

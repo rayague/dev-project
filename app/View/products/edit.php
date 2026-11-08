@@ -9,13 +9,15 @@
  *  Envoi en POST vers /products/update → ProductController::update().
  *
  *  VARIABLES REÇUES :
- *   - $product : ligne produit (ou valeurs resaisies après erreur)
- *   - $errors  : messages d'erreur par champ
+ *   - $product    : ligne produit (ou valeurs resaisies après erreur)
+ *   - $errors     : messages d'erreur par champ
+ *   - $categories : liste pour le select category_id
  * ============================================================
  */
 
-$product = $product ?? [];
-$errors  = $errors ?? [];
+$product    = $product ?? [];
+$errors     = $errors ?? [];
+$categories = $categories ?? []; // peuplé par ProductController::edit / update
 
 // Lit une propriété du produit (ou une valeur par défaut).
 $valeur = function (string $champ, string $defaut = '') use ($product): string {
@@ -57,6 +59,25 @@ $erreurDe = function (string $champ) use ($errors): string {
                        class="input <?= $erreurDe('name') !== '' ? 'input--err' : '' ?>">
                 <?php if ($erreurDe('name') !== ''): ?>
                     <p class="field-err"><?= e($erreurDe('name')) ?></p>
+                <?php endif; ?>
+            </div>
+
+            <!-- Catégorie facultative : pré-sélection via $product['category_id'] -->
+            <div>
+                <label for="category_id" class="field-label">Catégorie <span class="font-normal text-slate-500">(facultatif)</span></label>
+                <select id="category_id" name="category_id"
+                        class="input <?= $erreurDe('category_id') !== '' ? 'input--err' : '' ?>">
+                    <option value="">— Aucune —</option>
+                    <?php foreach ($categories as $categorie): ?>
+                        <!-- Compare en string : PDO peut renvoyer id en string -->
+                        <option value="<?= (int) $categorie['id'] ?>"
+                            <?= (string) $valeur('category_id') === (string) $categorie['id'] ? 'selected' : '' ?>>
+                            <?= e($categorie['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if ($erreurDe('category_id') !== ''): ?>
+                    <p class="field-err"><?= e($erreurDe('category_id')) ?></p>
                 <?php endif; ?>
             </div>
 

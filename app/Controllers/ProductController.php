@@ -9,7 +9,7 @@
  *  modèle Product (table "products").
  *
  *  Opérations :
- *   - index()   : lister (recherche + pagination)
+ *   - index()   : lister (recherche + filtre catégorie + pagination)
  *   - create()  : afficher le formulaire de création
  *   - store()   : enregistrer un nouveau produit
  *   - show()    : afficher le détail d'un produit
@@ -17,8 +17,13 @@
  *   - update()  : enregistrer les modifications
  *   - destroy() : supprimer un produit
  *
+ *  Catégories (feature associée) :
+ *   - filtre index via ?category=id
+ *   - select category_id sur create / edit / store / update
+ *   - libellé category_name sur show
+ *
  *  Aucune balise HTML, aucune SQL brute ici :
- *  validation (Validator) + modèle Product + vues.
+ *  validation (Validator) + modèle Product / Category + vues.
  * ============================================================
  */
 
@@ -30,8 +35,8 @@ class ProductController extends Controller
      * ------------------------------------------------------------
      * LISTER LES PRODUITS  (URL : GET /products)
      * ------------------------------------------------------------
-     * Affiche la liste paginée, avec une recherche optionnelle
-     * sur le nom ou la description (?search=...&page=...).
+     * Affiche la liste paginée, avec recherche optionnelle
+     * (?search=...) et filtre catégorie (?category=2).
      */
     public function index(): void
     {
@@ -42,18 +47,27 @@ class ProductController extends Controller
         $search = (string) $this->query('search', '');
         $page   = max(1, (int) $this->query('page', 1)); // jamais < 1
 
-        // Données de la page courante via le modèle.
+        // Filtre catégorie : ?category=2 → int, 0 / absent → null (toutes).
+        $categoryId = (int) $this->query('category', 0);
+        $categoryId = $categoryId > 0 ? $categoryId : null;
+
+        // Données de la page courante via le modèle (JOIN category_name).
         $productModel = new Product();
-        $resultat     = $productModel->search($search, $page, 10);
+        $resultat     = $productModel->search($search, $page, 10, $categoryId);
+
+        // Liste des catégories pour peupler le <select> du filtre.
+        $categoryModel = new Category();
 
         // Transmission des variables à la vue products/index.php.
         $this->render('products/index', [
-            'products' => $resultat['items'], // lignes de la page
-            'total'    => $resultat['total'], // total filtré
-            'pages'    => $resultat['pages'], // nombre de pages
-            'page'     => $resultat['page'],  // page courante
-            'search'   => $search,            // pour réafficher le champ
-            'title'    => 'Gestion des produits',
+            'products'         => $resultat['items'], // lignes (+ category_name)
+            'total'            => $resultat['total'], // total filtré
+            'pages'            => $resultat['pages'], // nombre de pages
+            'page'             => $resultat['page'],  // page courante
+            'search'           => $search,            // pour réafficher le champ
+            'categories'       => $categoryModel->allOrdered(), // options du filtre
+            'activeCategoryId' => $categoryId,        // filtre courant (ou null)
+            'title'            => 'Gestion des produits',
         ]);
     }
 
@@ -69,8 +83,9 @@ class ProductController extends Controller
         Auth::requireLogin();
 
         $this->render('products/create', [
-            'old'   => [], // formulaire neuf : aucune valeur préremplie
-            'title' => 'Nouveau produit',
+            'old'        => [], // formulaire neuf : aucune valeur préremplie
+            'categories' => (new Category())->allOrdered(), // select category_id
+            'title'      => 'Nouveau produit',
         ]);
     }
 
@@ -95,17 +110,20 @@ class ProductController extends Controller
         if (!$this->csrfCheck()) {
             $this->errors['_global'][] = 'Formulaire expiré ou invalide, veuillez réessayer.';
             $this->render('products/create', [
-                'old'   => $this->formOld(),
-                'title' => 'Nouveau produit',
+                'old'        => $this->formOld(),
+                'categories' => (new Category())->allOrdered(),
+                'title'      => 'Nouveau produit',
             ]);
             return; // rien n'est enregistré
         }
 
-        // Lecture des champs du formulaire.
+        // Lecture des champs du formulaire (dont category_id facultatif).
         $name        = $this->input('name');
         $description = $this->input('description');
         $price       = $this->input('price');
         $stock       = $this->input('stock');
+        // "" ou "0" → null ; sinon entier positif.
+        $categoryId  = $this->normalizeCategoryId($this->input('category_id'));
 
         // Validation des règles métier / format.
         $v = new Validator();
@@ -119,23 +137,30 @@ class ProductController extends Controller
             $this->errors['stock'] = ['Le stock ne peut pas être négatif.'];
         }
 
+        // Catégorie facultative : si fournie, elle doit exister en base.
+        if ($categoryId !== null && !(new Category())->findById($categoryId)) {
+            $this->errors['category_id'] = ['La catégorie sélectionnée est invalide.'];
+        }
+
         // En cas d'erreur : on réaffiche le formulaire avec les messages.
         if ($v->fails() || $this->errors !== []) {
             $this->errors = array_merge_recursive($this->errors, $v->errors());
             $this->render('products/create', [
-                'old'   => $this->formOld(),
-                'title' => 'Nouveau produit',
+                'old'        => $this->formOld(), // conserve aussi category_id
+                'categories' => (new Category())->allOrdered(),
+                'title'      => 'Nouveau produit',
             ]);
             return;
         }
 
-        // Insertion en base via le modèle.
+        // Insertion en base via le modèle (category_id peut être null).
         $productModel = new Product();
         $nouvelId     = $productModel->store([
             'name'        => $name,
             'description' => $description ?: null, // chaîne vide → NULL
             'price'       => (float) $price,
             'stock'       => (int) $stock,
+            'category_id' => $categoryId,
         ]);
 
         // Message flash + redirection (pattern Post/Redirect/Get).
@@ -155,8 +180,13 @@ class ProductController extends Controller
         // Charge le produit ou affiche une 404.
         $product = $this->findOr404();
 
+        // Enrichit la ligne avec le libellé catégorie (relation FK).
+        $product['category_name'] = (new Product())->getCategoryName(
+            isset($product['category_id']) ? (int) $product['category_id'] : null
+        );
+
         $this->render('products/show', [
-            'product' => $product,
+            'product' => $product, // contient category_id + category_name
             'title'   => $product['name'],
         ]);
     }
@@ -165,7 +195,8 @@ class ProductController extends Controller
      * ------------------------------------------------------------
      * FORMULAIRE DE MODIFICATION  (URL : GET /products/edit?id=X)
      * ------------------------------------------------------------
-     * Pré-remplit les champs avec les valeurs actuelles en base.
+     * Pré-remplit les champs avec les valeurs actuelles en base
+     * (y compris category_id pour le <select>).
      */
     public function edit(): void
     {
@@ -174,8 +205,9 @@ class ProductController extends Controller
         $product = $this->findOr404();
 
         $this->render('products/edit', [
-            'product' => $product,
-            'title'   => 'Modifier ' . $product['name'],
+            'product'    => $product,
+            'categories' => (new Category())->allOrdered(), // options du select
+            'title'      => 'Modifier ' . $product['name'],
         ]);
     }
 
@@ -207,6 +239,8 @@ class ProductController extends Controller
         $description = $this->input('description');
         $price       = $this->input('price');
         $stock       = $this->input('stock');
+        // Même normalisation que store() : vide → null.
+        $categoryId  = $this->normalizeCategoryId($this->input('category_id'));
 
         $v = new Validator();
         $v->check('name', $name, ['required', 'min:2', 'max:150'], 'Le nom');
@@ -218,6 +252,11 @@ class ProductController extends Controller
             $this->errors['stock'] = ['Le stock ne peut pas être négatif.'];
         }
 
+        // Vérifie que l'id catégorie (s'il est fourni) existe bien.
+        if ($categoryId !== null && !(new Category())->findById($categoryId)) {
+            $this->errors['category_id'] = ['La catégorie sélectionnée est invalide.'];
+        }
+
         // Erreurs → on réaffiche edit avec les valeurs saisies.
         if ($v->fails() || $this->errors !== []) {
             $this->errors = array_merge_recursive($this->errors, $v->errors());
@@ -225,21 +264,24 @@ class ProductController extends Controller
             $product['description'] = $description;
             $product['price']       = $price;
             $product['stock']       = $stock;
+            $product['category_id'] = $categoryId; // pour resélectionner le <select>
 
             $this->render('products/edit', [
-                'product' => $product,
-                'title'   => 'Modifier ' . $name,
+                'product'    => $product,
+                'categories' => (new Category())->allOrdered(),
+                'title'      => 'Modifier ' . $name,
             ]);
             return;
         }
 
-        // Mise à jour des colonnes autorisées.
+        // Mise à jour des colonnes autorisées (category_id inclus).
         $productModel = new Product();
         $productModel->update((int) $product['id'], [
             'name'        => $name,
             'description' => $description ?: null,
             'price'       => (float) $price,
             'stock'       => max(0, (int) $stock),
+            'category_id' => $categoryId,
         ]);
 
         $this->flash('success', 'Le produit « ' . $name . ' » a été mis à jour.');
@@ -282,7 +324,7 @@ class ProductController extends Controller
      * ------------------------------------------------------------
      * Permet de ne pas perdre ce que l'utilisateur avait saisi.
      *
-     * @return array{name:string,description:string,price:string,stock:string}
+     * @return array{name:string,description:string,price:string,stock:string,category_id:string}
      */
     private function formOld(): array
     {
@@ -291,7 +333,26 @@ class ProductController extends Controller
             'description' => $this->input('description'),
             'price'       => $this->input('price'),
             'stock'       => $this->input('stock'),
+            'category_id' => $this->input('category_id'),
         ];
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * NORMALISER category_id (vide → null)
+     * ------------------------------------------------------------
+     * Le <select> envoie "" pour « Aucune » : on convertit en null
+     * pour respecter la colonne nullable en base.
+     */
+    private function normalizeCategoryId(string $raw): ?int
+    {
+        $raw = trim($raw);
+        // Chaîne vide, non numérique ou ≤ 0 → pas de catégorie.
+        if ($raw === '' || !is_numeric($raw) || (int) $raw <= 0) {
+            return null;
+        }
+
+        return (int) $raw;
     }
 
     /**
