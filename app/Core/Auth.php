@@ -178,7 +178,8 @@ class Auth
         // Ensuite : il faut être administrateur.
         if (!self::isAdmin()) {
             $router = new Router();
-            $router->renderError(403, 'Vous n\'avez pas les droits nécessaires pour accéder à la gestion des utilisateurs.');
+            // Message générique : utilisé pour users, produits, etc.
+            $router->renderError(403, 'Vous n\'avez pas les droits nécessaires pour accéder à cette page.');
         }
     }
 

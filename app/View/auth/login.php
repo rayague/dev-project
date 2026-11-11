@@ -15,6 +15,10 @@
  *  VARIABLES REÇUES :
  *   - $errors : erreurs de validation
  *   - $old    : anciennes valeurs saisies
+ *
+ *  Comptes démo affichés en bas de page :
+ *   - admin@ascg.fr / password123  (rôle admin)
+ *   - user@example.com / password123 (rôle user, RBAC lecture)
  * ============================================================
  */
 
@@ -129,10 +133,25 @@ $clsKo    = 'input--err';
         </a>
     </p>
 
-    <!-- Compte de démonstration -->
-    <div class="anim-fade-up d-3 mt-6 rounded-2xl border border-white/[.08] bg-white/[.03] px-4 py-3.5 text-center text-xs text-slate-400">
-        <p class="mb-1 font-medium uppercase tracking-wider text-slate-500">Compte de démonstration</p>
-        <p><span class="font-mono font-semibold text-emerald-300">admin@ascg.fr</span> &nbsp;·&nbsp; <span class="font-mono font-semibold text-emerald-300">password123</span></p>
+    <!-- Comptes de démonstration (admin + utilisateur simple pour le RBAC) -->
+    <div class="anim-fade-up d-3 mt-6 space-y-3 rounded-2xl border border-white/[.08] bg-white/[.03] px-4 py-3.5 text-center text-xs text-slate-400">
+        <p class="mb-1 font-medium uppercase tracking-wider text-slate-500">Comptes de démonstration</p>
+        <!-- Admin : CRUD complet (produits, utilisateurs, etc.) -->
+        <p>
+            <span class="text-slate-500">Admin</span>
+            &nbsp;·&nbsp;
+            <span class="font-mono font-semibold text-emerald-300">admin@ascg.fr</span>
+            &nbsp;·&nbsp;
+            <span class="font-mono font-semibold text-emerald-300">password123</span>
+        </p>
+        <!-- Utilisateur : lecture produits / catalogue uniquement (pas d'écriture) -->
+        <p>
+            <span class="text-slate-500">Utilisateur</span>
+            &nbsp;·&nbsp;
+            <span class="font-mono font-semibold text-sky-300">user@example.com</span>
+            &nbsp;·&nbsp;
+            <span class="font-mono font-semibold text-sky-300">password123</span>
+        </p>
     </div>
 </div>
 

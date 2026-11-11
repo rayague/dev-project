@@ -34,7 +34,12 @@
 /* ------------------------------------------------------------
    2) BASE
    ------------------------------------------------------------ */
-html { scroll-behavior: smooth; }
+html {
+    scroll-behavior: smooth;
+    /* Firefox : piste translucide, pouce verre (pas de flou possible ici). */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .28) rgba(255, 255, 255, .045);
+}
 
 body {
     background-color: var(--bg);
@@ -46,15 +51,29 @@ body {
 
 ::selection { background-color: rgb(52 211 153 / .28); color: #fff; }
 
-/* Barre de défilement discrète et sombre */
-::-webkit-scrollbar { width: 11px; height: 11px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, .12);
+/* Barre de défilement verre, même langage que les pastilles catégorie. */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, .035);
     border-radius: 999px;
-    border: 3px solid var(--bg);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .2); }
+::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background-color: rgba(255, 255, 255, .1);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .05));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+}
+::-webkit-scrollbar-thumb:hover {
+    border-color: rgba(52, 211, 153, .4);
+    background-color: rgba(52, 211, 153, .22);
+    background-image: linear-gradient(180deg, rgba(110, 231, 183, .42), rgba(45, 212, 191, .14));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .48);
+}
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* Ordiné : les champs de choix (= navigateur sombre aussi) */
 .color-scheme-dark, select.input, input[type="date"] { color-scheme: dark; }
@@ -267,6 +286,27 @@ body::after {
 }
 select.input { padding-left: .9rem; }
 select.input option { background-color: #0a0f1c; color: var(--ink); }
+
+/* Filtre catégorie : la valeur affichée ne doit pas être coupée. */
+.category-filter-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: .75rem;
+    align-items: end;
+}
+.category-field { min-width: 0; }
+select.input--category {
+    width: 100%;
+    max-width: 100%;
+    padding-right: 2.1rem;
+    text-overflow: clip;
+}
+@media (min-width: 960px) {
+    .category-filter-grid {
+        grid-template-columns: minmax(0, 1.4fr) minmax(16.5rem, 1fr) auto;
+    }
+    .category-field { min-width: 16.5rem; }
+}
 .input--err { border-color: rgba(248, 113, 113, .5); background: rgba(248, 113, 113, .055); }
 .input--err:focus { border-color: rgba(248, 113, 113, .6); box-shadow: 0 0 0 4px rgba(248, 113, 113, .12); }
 .field-err {
@@ -310,6 +350,70 @@ select.input option { background-color: #0a0f1c; color: var(--ink); }
     border-radius: 50%;
     background: currentColor;
     box-shadow: 0 0 8px currentColor;
+}
+
+/* Pastille catégorie : verre comme la barre de filtres, texte jamais coupé. */
+.product-cat {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+    padding: .32rem .7rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, .055);
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+    color: var(--ink-2);
+    font-size: .68rem;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: .01em;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: clip;
+}
+
+/* Carte catalogue : colonne flex, catégorie ancrée en bas. */
+.product-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    padding: 1.25rem 1.25rem 4.6rem;
+}
+.product-card__main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.product-card__title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.product-card > .product-cat {
+    position: absolute;
+    left: 1.25rem;
+    bottom: 1rem;
+    width: max-content;
+    max-width: calc(100% - 2.5rem);
+}
+
+/* Liste produits : pastille sous le nom seulement quand la colonne est masquée. */
+.product-cat--stacked { display: none; margin-top: .5rem; }
+.product-cat--cell { width: max-content; max-width: 11rem; }
+
+@media (max-width: 760px) {
+    .col-category { display: none; }
+    .product-cat--stacked {
+        display: inline-flex;
+        position: static;
+        width: max-content;
+        max-width: 100%;
+    }
 }
 
 /* ------------------------------------------------------------
