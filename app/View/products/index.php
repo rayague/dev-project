@@ -77,8 +77,8 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
         <?php if ($sort === 'category'): ?>
             <input type="hidden" name="sort" value="category">
         <?php endif; ?>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-5">
-            <div class="sm:col-span-2">
+        <div class="category-filter-grid">
+            <div>
                 <label for="search" class="field-label !text-xs">Rechercher</label>
                 <div class="relative">
                     <span class="field-ic" aria-hidden="true">
@@ -91,9 +91,9 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
             </div>
 
             <!-- Filtre catégorie : GET ?category=id (vide = toutes) -->
-            <div class="sm:col-span-2">
+            <div class="category-field">
                 <label for="category" class="field-label !text-xs">Catégorie</label>
-                <select id="category" name="category" class="input">
+                <select id="category" name="category" class="input input--category">
                     <option value="">Toutes les catégories</option>
                     <?php foreach ($categories as $categorie): ?>
                         <!-- selected si ce filtre est celui de l'URL courante -->
@@ -114,6 +114,38 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
             </div>
         </div>
     </form>
+
+    <?php
+    // Barre horizontale sous le formulaire : clic → ?category=id.
+    // Conserve recherche et tri. « Toutes » retire seulement la catégorie.
+    $filtreBase = $queryParams;
+    unset($filtreBase['category']);
+    $lienToutes = url('/products');
+    $qsToutes = http_build_query($filtreBase);
+    if ($qsToutes !== '') {
+        $lienToutes .= '?' . $qsToutes;
+    }
+    $toutesActif = $activeCategoryId === null || (int) $activeCategoryId <= 0;
+    ?>
+    <nav class="anim-fade-up d-1 -mt-2 mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrer par catégorie">
+        <a href="<?= e($lienToutes) ?>"
+           class="btn btn-sm shrink-0 !py-2 <?= $toutesActif ? 'btn-primary' : 'btn-ghost' ?>"
+           <?= $toutesActif ? 'aria-current="true"' : '' ?>>
+            Toutes
+        </a>
+        <?php foreach ($categories as $categorie): ?>
+            <?php
+            $idCat = (int) $categorie['id'];
+            $actif = (int) $activeCategoryId === $idCat;
+            $lienCat = url('/products') . '?' . http_build_query(array_merge($filtreBase, ['category' => $idCat]));
+            ?>
+            <a href="<?= e($lienCat) ?>"
+               class="btn btn-sm shrink-0 !py-2 <?= $actif ? 'btn-primary' : 'btn-ghost' ?>"
+               <?= $actif ? 'aria-current="true"' : '' ?>>
+                <?= e($categorie['name']) ?>
+            </a>
+        <?php endforeach; ?>
+    </nav>
 
     <!-- ============================================================
          ONGLETS DE TRI : récents | par catégorie (A→Z)
@@ -144,7 +176,7 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
                     <tr>
                         <th>Nom</th>
                         <!-- Libellé issu du LEFT JOIN (category_name) -->
-                        <th>Catégorie</th>
+                        <th class="col-category">Catégorie</th>
                         <th class="text-right">Prix</th>
                         <th class="text-right">Stock</th>
                         <th class="text-right">Actions</th>
@@ -192,12 +224,20 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
                                     <?php if (!empty($product['description'])): ?>
                                         <p class="mt-0.5 line-clamp-1 text-xs text-slate-500"><?= e($product['description']) ?></p>
                                     <?php endif; ?>
+                                    <!-- Étroit : la catégorie passe sous le nom, en entier. -->
+                                    <span class="product-cat product-cat--stacked">
+                                        <?= !empty($product['category_name'])
+                                            ? e($product['category_name'])
+                                            : 'Sans catégorie' ?>
+                                    </span>
                                 </td>
-                                <td class="whitespace-nowrap text-slate-300">
+                                <td class="col-category text-slate-300">
                                     <!-- Tiret si product.category_id est NULL -->
-                                    <?= !empty($product['category_name'])
-                                        ? e($product['category_name'])
-                                        : '<span class="text-slate-500">—</span>' ?>
+                                    <span class="product-cat product-cat--cell">
+                                        <?= !empty($product['category_name'])
+                                            ? e($product['category_name'])
+                                            : 'Sans catégorie' ?>
+                                    </span>
                                 </td>
                                 <td class="whitespace-nowrap text-right font-semibold text-white"><?= money($product['price']) ?></td>
                                 <td class="whitespace-nowrap text-right text-slate-300"><?= (int) $product['stock'] ?></td>
