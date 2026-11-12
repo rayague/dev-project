@@ -16,7 +16,6 @@
  *   - $search           : terme de recherche en cours
  *   - $categories       : liste des catégories (filtre)
  *   - $activeCategoryId : id de catégorie filtrée (ou null)
- *   - $sort             : '' (récents) ou 'category' (A→Z + groupes)
  * ============================================================
  */
 
@@ -28,9 +27,8 @@ $page             = $page ?? 1;
 $search           = $search ?? '';
 $categories       = $categories ?? []; // options du <select name="category">
 $activeCategoryId = $activeCategoryId ?? null; // id filtré, ou null = toutes
-$sort             = $sort ?? ''; // '' | 'category'
 
-// Query string de pagination / onglets : conserve search + category + sort.
+// Query string de pagination : conserve search + category.
 $queryParams = [];
 if ($search !== '') {
     $queryParams['search'] = $search;
@@ -38,15 +36,6 @@ if ($search !== '') {
 if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
     $queryParams['category'] = (int) $activeCategoryId;
 }
-if ($sort === 'category') {
-    $queryParams['sort'] = 'category';
-}
-
-// Liens des onglets de tri (sans page : on repart à la page 1).
-$tabBase = $queryParams;
-unset($tabBase['sort']);
-$tabRecentUrl   = url('/products') . (($q = http_build_query($tabBase)) !== '' ? '?' . $q : '');
-$tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase, ['sort' => 'category']));
 ?>
 
 <div class="mx-auto w-full max-w-6xl">
@@ -73,10 +62,6 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
          FORMULAIRE DE RECHERCHE + FILTRE CATÉGORIE (GET → /products)
          ============================================================ -->
     <form method="GET" action="<?= url('/products') ?>" class="glass-card anim-fade-up d-1 mb-6 p-4 sm:p-5">
-        <!-- Conserve le tri actif lors d'un filtre recherche / catégorie -->
-        <?php if ($sort === 'category'): ?>
-            <input type="hidden" name="sort" value="category">
-        <?php endif; ?>
         <div class="category-filter-grid">
             <div>
                 <label for="search" class="field-label !text-xs">Rechercher</label>
@@ -90,10 +75,11 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
                 </div>
             </div>
 
-            <!-- Filtre catégorie : GET ?category=id (vide = toutes) -->
+            <!-- Filtre catégorie : un changement envoie tout de suite ?category=id -->
             <div class="category-field">
                 <label for="category" class="field-label !text-xs">Catégorie</label>
-                <select id="category" name="category" class="input input--category">
+                <select id="category" name="category" class="input input--category"
+                        onchange="this.form.requestSubmit()">
                     <option value="">Toutes les catégories</option>
                     <?php foreach ($categories as $categorie): ?>
                         <!-- selected si ce filtre est celui de l'URL courante -->
@@ -114,57 +100,6 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
             </div>
         </div>
     </form>
-
-    <?php
-    // Barre horizontale sous le formulaire : clic → ?category=id.
-    // Conserve recherche et tri. « Toutes » retire seulement la catégorie.
-    $filtreBase = $queryParams;
-    unset($filtreBase['category']);
-    $lienToutes = url('/products');
-    $qsToutes = http_build_query($filtreBase);
-    if ($qsToutes !== '') {
-        $lienToutes .= '?' . $qsToutes;
-    }
-    $toutesActif = $activeCategoryId === null || (int) $activeCategoryId <= 0;
-    ?>
-    <nav class="anim-fade-up d-1 -mt-2 mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrer par catégorie">
-        <a href="<?= e($lienToutes) ?>"
-           class="btn btn-sm shrink-0 !py-2 <?= $toutesActif ? 'btn-primary' : 'btn-ghost' ?>"
-           <?= $toutesActif ? 'aria-current="true"' : '' ?>>
-            Toutes
-        </a>
-        <?php foreach ($categories as $categorie): ?>
-            <?php
-            $idCat = (int) $categorie['id'];
-            $actif = (int) $activeCategoryId === $idCat;
-            $lienCat = url('/products') . '?' . http_build_query(array_merge($filtreBase, ['category' => $idCat]));
-            ?>
-            <a href="<?= e($lienCat) ?>"
-               class="btn btn-sm shrink-0 !py-2 <?= $actif ? 'btn-primary' : 'btn-ghost' ?>"
-               <?= $actif ? 'aria-current="true"' : '' ?>>
-                <?= e($categorie['name']) ?>
-            </a>
-        <?php endforeach; ?>
-    </nav>
-
-    <!-- ============================================================
-         ONGLETS DE TRI : récents | par catégorie (A→Z)
-         ============================================================ -->
-    <div class="anim-fade-up d-1 mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tri des produits">
-        <a href="<?= e($tabRecentUrl) ?>"
-           role="tab"
-           aria-selected="<?= $sort !== 'category' ? 'true' : 'false' ?>"
-           class="btn btn-sm !py-2 <?= $sort !== 'category' ? 'btn-primary' : 'btn-ghost' ?>">
-            Récents
-        </a>
-        <a href="<?= e($tabCategoryUrl) ?>"
-           role="tab"
-           data-sort="category"
-           aria-selected="<?= $sort === 'category' ? 'true' : 'false' ?>"
-           class="btn btn-sm !py-2 <?= $sort === 'category' ? 'btn-primary' : 'btn-ghost' ?>">
-            Par catégorie
-        </a>
-    </div>
 
     <!-- ============================================================
          TABLEAU DES PRODUITS
@@ -194,27 +129,7 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
                             </td>
                         </tr>
                     <?php else: ?>
-                        <?php
-                        // En mode sort=category : une ligne d'en-tête par groupe.
-                        $groupePrecedent = null;
-                        ?>
                         <?php foreach ($products as $i => $product): ?>
-                            <?php if ($sort === 'category'): ?>
-                                <?php
-                                $groupeCourant = $product['category_name'] ?? '';
-                                if ($groupeCourant === '') {
-                                    $groupeCourant = 'Sans catégorie';
-                                }
-                                if ($groupeCourant !== $groupePrecedent):
-                                    $groupePrecedent = $groupeCourant;
-                                ?>
-                                    <tr class="category-group" data-category-group="<?= e($groupeCourant) ?>">
-                                        <td colspan="5" class="!bg-white/[.04] font-display text-sm font-semibold tracking-wide text-emerald-300">
-                                            <?= e($groupeCourant) ?>
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
-                            <?php endif; ?>
                             <tr class="anim-fade-in" data-product-name="<?= e($product['name']) ?>" <?= $i > 0 ? 'style="animation-delay:' . min($i * 30, 240) . 'ms"' : '' ?>>
                                 <td>
                                     <a href="<?= url('/products/show') ?>?id=<?= (int) $product['id'] ?>"
@@ -268,7 +183,7 @@ $tabCategoryUrl = url('/products') . '?' . http_build_query(array_merge($tabBase
              ============================================================ -->
         <nav class="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-3.5">
             <?php
-            // Liens Précédent / Suivant : gardent search, category et sort.
+            // Liens Précédent / Suivant : gardent search et category.
             $prevQuery = http_build_query(array_merge($queryParams, ['page' => $page - 1]));
             $nextQuery = http_build_query(array_merge($queryParams, ['page' => $page + 1]));
             ?>

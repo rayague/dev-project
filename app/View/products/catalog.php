@@ -12,7 +12,7 @@
  *
  *  VARIABLES REÇUES :
  *   - $products, $total, $pages, $page, $search
- *   - $categories, $activeCategoryId
+ *   - $categories, $activeCategoryId (sélecteur de filtre)
  * ============================================================
  */
 
@@ -47,7 +47,7 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
         </p>
     </div>
 
-    <!-- Recherche + filtre catégorie (GET) -->
+    <!-- Recherche + sélecteur de catégorie (GET). Un changement filtre tout de suite. -->
     <form method="GET" action="<?= url('/products-user') ?>" class="glass-card anim-fade-up d-1 mb-6 p-4 sm:p-5">
         <div class="category-filter-grid">
             <div>
@@ -58,7 +58,8 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
             </div>
             <div class="category-field">
                 <label for="category" class="field-label !text-xs">Catégorie</label>
-                <select id="category" name="category" class="input input--category">
+                <select id="category" name="category" class="input input--category"
+                        onchange="this.form.requestSubmit()">
                     <option value="">Toutes les catégories</option>
                     <?php foreach ($categories as $categorie): ?>
                         <option value="<?= (int) $categorie['id'] ?>"
@@ -69,43 +70,11 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="btn btn-primary flex-1">Filtrer</button>
+                <button type="submit" class="btn btn-primary w-full !py-2.5">Filtrer</button>
                 <a href="<?= url('/products-user') ?>" class="btn btn-ghost !h-[42px] !w-[42px] !p-0" title="Réinitialiser">×</a>
             </div>
         </div>
     </form>
-
-    <?php
-    // Barre horizontale : un clic pose ?category=id (la recherche est conservée).
-    // « Toutes » retire le filtre catégorie.
-    $filtreBase = $queryParams;
-    unset($filtreBase['category']);
-    $lienToutes = url('/products-user');
-    $qsToutes = http_build_query($filtreBase);
-    if ($qsToutes !== '') {
-        $lienToutes .= '?' . $qsToutes;
-    }
-    $toutesActif = $activeCategoryId === null || (int) $activeCategoryId <= 0;
-    ?>
-    <nav class="anim-fade-up d-1 -mt-2 mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrer par catégorie">
-        <a href="<?= e($lienToutes) ?>"
-           class="btn btn-sm shrink-0 !py-2 <?= $toutesActif ? 'btn-primary' : 'btn-ghost' ?>"
-           <?= $toutesActif ? 'aria-current="true"' : '' ?>>
-            Toutes
-        </a>
-        <?php foreach ($categories as $categorie): ?>
-            <?php
-            $idCat = (int) $categorie['id'];
-            $actif = (int) $activeCategoryId === $idCat;
-            $lienCat = url('/products-user') . '?' . http_build_query(array_merge($filtreBase, ['category' => $idCat]));
-            ?>
-            <a href="<?= e($lienCat) ?>"
-               class="btn btn-sm shrink-0 !py-2 <?= $actif ? 'btn-primary' : 'btn-ghost' ?>"
-               <?= $actif ? 'aria-current="true"' : '' ?>>
-                <?= e($categorie['name']) ?>
-            </a>
-        <?php endforeach; ?>
-    </nav>
 
     <!-- Grille catalogue : nom, description, prix, stock, catégorie -->
     <?php if ($products === []): ?>

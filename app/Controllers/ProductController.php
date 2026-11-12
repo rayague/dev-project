@@ -43,8 +43,7 @@ class ProductController extends Controller
      * LISTER LES PRODUITS  (URL : GET /products)
      * ------------------------------------------------------------
      * Affiche la liste paginée, avec recherche optionnelle
-     * (?search=...), filtre catégorie (?category=2) et tri
-     * (?sort=category → regroupement alphabétique par catégorie).
+     * (?search=...) et filtre catégorie (?category=2).
      */
     public function index(): void
     {
@@ -59,15 +58,9 @@ class ProductController extends Controller
         $categoryId = (int) $this->query('category', 0);
         $categoryId = $categoryId > 0 ? $categoryId : null;
 
-        // Tri : seul 'category' est reconnu (sinon ordre chronologique).
-        $sort = (string) $this->query('sort', '');
-        if ($sort !== 'category') {
-            $sort = '';
-        }
-
         // Données de la page courante via le modèle (JOIN category_name).
         $productModel = new Product();
-        $resultat     = $productModel->search($search, $page, 10, $categoryId, $sort);
+        $resultat     = $productModel->search($search, $page, 10, $categoryId);
 
         // Liste des catégories pour peupler le <select> du filtre.
         $categoryModel = new Category();
@@ -81,7 +74,6 @@ class ProductController extends Controller
             'search'           => $search,            // pour réafficher le champ
             'categories'       => $categoryModel->allOrdered(), // options du filtre
             'activeCategoryId' => $categoryId,        // filtre courant (ou null)
-            'sort'             => $sort,              // '' ou 'category'
             'title'            => 'Gestion des produits',
         ]);
     }
@@ -107,7 +99,7 @@ class ProductController extends Controller
         $categoryId = $categoryId > 0 ? $categoryId : null;
 
         $productModel  = new Product();
-        $resultat      = $productModel->search($search, $page, 12, $categoryId, '');
+        $resultat      = $productModel->search($search, $page, 12, $categoryId);
         $categoryModel = new Category();
 
         $this->render('products/catalog', [

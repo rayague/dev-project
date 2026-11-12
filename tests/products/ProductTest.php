@@ -16,7 +16,6 @@
  *   - filtre ?category=N sur la liste
  *   - dropdown filtre : 6 catégories
  *   - remise à zéro du filtre (toutes les catégories)
- *   - tri / regroupement ?sort=category (A→Z)
  *   - RBAC : utilisateur simple bloqué sur /products/create (403)
  *   - RBAC : admin peut ouvrir /products/create
  *   - Catalogue /products-user accessible à un utilisateur simple
@@ -336,48 +335,6 @@ final class ProductTest extends SeleniumTest
         $this->assertContains('Montre connectée', $labels);
         $this->assertContains('Tablette', $labels);
         $this->assertContains('Caméra', $labels);
-    }
-
-    /**
-     * ------------------------------------------------------------
-     * testSortByCategoryGroupsAlphabetically
-     * ------------------------------------------------------------
-     * Crée un produit Tablette et un produit Caméra, active
-     * ?sort=category, puis vérifie l'ordre A→Z (Caméra avant Tablette)
-     * et la présence des en-têtes de groupe.
-     */
-    public function testSortByCategoryGroupsAlphabetically(): void
-    {
-        $this->loginAsDemo();
-
-        $suffix  = uniqid('', false);
-        $camera  = 'Selenium Sort Cam ' . $suffix;
-        $tablette = 'Selenium Sort Tab ' . $suffix;
-
-        // Tablette (id 5) puis Caméra (id 6) : en mode récents, Tablette peut être avant.
-        $this->createProductViaUi($tablette, 'Sort tab', '30.00', '1', 5);
-        $this->createProductViaUi($camera, 'Sort cam', '40.00', '1', 6);
-
-        // Tri A→Z + recherche sur le suffixe unique (évite la pagination saturée).
-        $query = http_build_query(['sort' => 'category', 'search' => $suffix]);
-        $this->driver->get(self::PRODUCTS_URL . '?' . $query);
-        (new WebDriverWait($this->driver, 8))->until(
-            WebDriverExpectedCondition::presenceOfElementLocated(WebDriverBy::cssSelector('table.tbl'))
-        );
-
-        $this->assertStringContainsString('sort=category', strtolower($this->driver->getCurrentURL()));
-
-        // En-têtes de groupe visibles.
-        $groupes = $this->driver->findElements(WebDriverBy::cssSelector('tr.category-group'));
-        $this->assertNotEmpty($groupes);
-
-        // Ordre dans le DOM : Caméra (C) avant Tablette (T).
-        $page = $this->driver->getPageSource();
-        $posCam = strpos($page, $camera);
-        $posTab = strpos($page, $tablette);
-        $this->assertNotFalse($posCam);
-        $this->assertNotFalse($posTab);
-        $this->assertLessThan($posTab, $posCam, 'Caméra doit apparaître avant Tablette en tri A→Z');
     }
 
     /**

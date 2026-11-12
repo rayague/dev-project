@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
  *
  *  Centralise le démarrage / l'arrêt du navigateur Chrome pour
  *  tous les tests Selenium du projet GestCommandes
- *  (LoginTest, ProductTest, CategoryPillFilterTest, ExampleSeleniumTest…).
+ *  (LoginTest, ProductTest, ExampleSeleniumTest…).
  *
  *  Prérequis :
  *   - ChromeDriver sur http://127.0.0.1:9515, ou
