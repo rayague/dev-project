@@ -16,6 +16,7 @@
  *   - $search           : terme de recherche en cours
  *   - $categories       : liste des catégories (filtre)
  *   - $activeCategoryId : id de catégorie filtrée (ou null)
+ *   - $sort             : '' (récents) ou 'category' (A→Z)
  * ============================================================
  */
 
@@ -27,14 +28,28 @@ $page             = $page ?? 1;
 $search           = $search ?? '';
 $categories       = $categories ?? []; // options du <select name="category">
 $activeCategoryId = $activeCategoryId ?? null; // id filtré, ou null = toutes
+$sort             = $sort ?? ''; // '' | 'category'
 
-// Query string de pagination : conserve search + category.
+// Query string de pagination : conserve search, category et sort.
 $queryParams = [];
 if ($search !== '') {
     $queryParams['search'] = $search;
 }
 if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
     $queryParams['category'] = (int) $activeCategoryId;
+}
+if ($sort === 'category') {
+    $queryParams['sort'] = 'category';
+}
+
+// Clic sur l'en-tête : active le tri, ou le retire s'il est déjà actif.
+$sortBase = $queryParams;
+unset($sortBase['sort']);
+if ($sort === 'category') {
+    $sortQuery = http_build_query($sortBase);
+    $sortUrl   = url('/products') . ($sortQuery !== '' ? '?' . $sortQuery : '');
+} else {
+    $sortUrl = url('/products') . '?' . http_build_query(array_merge($sortBase, ['sort' => 'category']));
 }
 ?>
 
@@ -46,7 +61,7 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
     <div class="anim-fade-up mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="font-display text-2xl font-bold tracking-tight text-white">Produits</h2>
-            <p class="mt-1 text-sm text-slate-400"><?= (int) $total ?> produit(s) trouvé(s)</p>
+            <p id="product-count" class="mt-1 text-sm text-slate-400"><?= (int) $total ?> produit(s) trouvé(s)</p>
         </div>
 
         <?php // RBAC : bouton de création visible uniquement pour les administrateurs. ?>
@@ -61,7 +76,13 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
     <!-- ============================================================
          FORMULAIRE DE RECHERCHE + FILTRE CATÉGORIE (GET → /products)
          ============================================================ -->
-    <form method="GET" action="<?= url('/products') ?>" class="glass-card anim-fade-up d-1 mb-6 p-4 sm:p-5">
+    <form method="GET" action="<?= url('/products') ?>" id="product-filter"
+          data-rows-url="<?= e(url('/products/rows')) ?>"
+          data-list-url="<?= e(url('/products')) ?>"
+          class="glass-card anim-fade-up d-1 mb-6 p-4 sm:p-5">
+        <?php if ($sort === 'category'): ?>
+            <input type="hidden" name="sort" value="category">
+        <?php endif; ?>
         <div class="category-filter-grid">
             <div>
                 <label for="search" class="field-label !text-xs">Rechercher</label>
@@ -75,11 +96,10 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
                 </div>
             </div>
 
-            <!-- Filtre catégorie : un changement envoie tout de suite ?category=id -->
+            <!-- Filtre catégorie : GET ?category=id au clic sur Filtrer -->
             <div class="category-field">
                 <label for="category" class="field-label !text-xs">Catégorie</label>
-                <select id="category" name="category" class="input input--category"
-                        onchange="this.form.requestSubmit()">
+                <select id="category" name="category" class="input input--category">
                     <option value="">Toutes les catégories</option>
                     <?php foreach ($categories as $categorie): ?>
                         <!-- selected si ce filtre est celui de l'URL courante -->
@@ -110,70 +130,17 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
                 <thead>
                     <tr>
                         <th>Nom</th>
-                        <!-- Libellé issu du LEFT JOIN (category_name) -->
-                        <th class="col-category">Catégorie</th>
+                        <th class="col-category">
+                            <a href="<?= e($sortUrl) ?>" id="product-sort"
+                               class="th-sort<?= $sort === 'category' ? ' th-sort--on' : '' ?>">Catégorie</a>
+                        </th>
                         <th class="text-right">Prix</th>
                         <th class="text-right">Stock</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php if (count($products) === 0): ?>
-                        <!-- Aucun résultat pour la recherche / base vide -->
-                        <tr>
-                            <td colspan="5">
-                                <div class="empty-box">
-                                    <p class="font-semibold text-white">Aucun produit trouvé</p>
-                                    <p class="mt-1 text-xs text-slate-500">Créez un premier produit pour commencer.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($products as $i => $product): ?>
-                            <tr class="anim-fade-in" data-product-name="<?= e($product['name']) ?>" <?= $i > 0 ? 'style="animation-delay:' . min($i * 30, 240) . 'ms"' : '' ?>>
-                                <td>
-                                    <a href="<?= url('/products/show') ?>?id=<?= (int) $product['id'] ?>"
-                                       class="font-semibold text-white transition hover:text-emerald-300">
-                                        <?= e($product['name']) ?>
-                                    </a>
-                                    <?php if (!empty($product['description'])): ?>
-                                        <p class="mt-0.5 line-clamp-1 text-xs text-slate-500"><?= e($product['description']) ?></p>
-                                    <?php endif; ?>
-                                    <!-- Étroit : la catégorie passe sous le nom, en entier. -->
-                                    <span class="product-cat product-cat--stacked">
-                                        <?= !empty($product['category_name'])
-                                            ? e($product['category_name'])
-                                            : 'Sans catégorie' ?>
-                                    </span>
-                                </td>
-                                <td class="col-category text-slate-300">
-                                    <!-- Tiret si product.category_id est NULL -->
-                                    <span class="product-cat product-cat--cell">
-                                        <?= !empty($product['category_name'])
-                                            ? e($product['category_name'])
-                                            : 'Sans catégorie' ?>
-                                    </span>
-                                </td>
-                                <td class="whitespace-nowrap text-right font-semibold text-white"><?= money($product['price']) ?></td>
-                                <td class="whitespace-nowrap text-right text-slate-300"><?= (int) $product['stock'] ?></td>
-                                <td class="whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-1.5">
-                                        <!-- Voir : tous les connectés ; Modifier / Supprimer : admin seulement (RBAC). -->
-                                        <a href="<?= url('/products/show') ?>?id=<?= (int) $product['id'] ?>" class="btn btn-ghost btn-sm !py-2">Voir</a>
-                                        <?php if (Auth::isAdmin()): ?>
-                                        <a href="<?= url('/products/edit') ?>?id=<?= (int) $product['id'] ?>" class="btn btn-warn btn-sm !py-2">Modifier</a>
-                                        <form method="POST" action="<?= url('/products/delete') ?>"
-                                              onsubmit="return confirm('Supprimer définitivement ce produit ?');">
-                                            <?= csrf_field() ?>
-                                            <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
-                                            <button type="submit" class="btn btn-danger btn-sm !py-2">Supprimer</button>
-                                        </form>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                <tbody id="product-rows">
+                    <?php include VIEWS_PATH . '/products/_rows.php'; ?>
                 </tbody>
             </table>
         </div>
@@ -181,28 +148,9 @@ if ($activeCategoryId !== null && (int) $activeCategoryId > 0) {
         <!-- ============================================================
              PAGINATION
              ============================================================ -->
-        <nav class="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-3.5">
-            <?php
-            // Liens Précédent / Suivant : gardent search et category.
-            $prevQuery = http_build_query(array_merge($queryParams, ['page' => $page - 1]));
-            $nextQuery = http_build_query(array_merge($queryParams, ['page' => $page + 1]));
-            ?>
-            <?php if ($page > 1): ?>
-                <a href="<?= url('/products') ?>?<?= e($prevQuery) ?>" class="btn btn-ghost btn-sm !py-2">Précédent</a>
-            <?php else: ?>
-                <span class="btn btn-sm !cursor-not-allowed border border-white/5 text-slate-600 !bg-white/[.02]">Précédent</span>
-            <?php endif; ?>
-
-            <span class="text-sm text-slate-500">
-                Page <span class="font-semibold text-white"><?= (int) $page ?></span>
-                sur <span class="font-semibold text-white"><?= (int) $pages ?></span>
-            </span>
-
-            <?php if ($page < $pages): ?>
-                <a href="<?= url('/products') ?>?<?= e($nextQuery) ?>" class="btn btn-ghost btn-sm !py-2">Suivant</a>
-            <?php else: ?>
-                <span class="btn btn-sm !cursor-not-allowed border border-white/5 text-slate-600 !bg-white/[.02]">Suivant</span>
-            <?php endif; ?>
+        <nav id="product-pagination" class="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-3.5">
+            <?php include VIEWS_PATH . '/products/_pagination.php'; ?>
         </nav>
     </div>
 </div>
+<script src="<?= e(url('/assets/js/products-filter.js')) ?>"></script>

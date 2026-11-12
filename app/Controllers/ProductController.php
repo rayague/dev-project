@@ -10,6 +10,7 @@
  *
  *  Opérations :
  *   - index()   : lister (recherche + filtre catégorie + pagination)
+ *   - rows()    : même liste, en fragment HTML pour l'AJAX
  *   - create()  : afficher le formulaire de création
  *   - store()   : enregistrer un nouveau produit
  *   - show()    : afficher le détail d'un produit
@@ -43,39 +44,46 @@ class ProductController extends Controller
      * LISTER LES PRODUITS  (URL : GET /products)
      * ------------------------------------------------------------
      * Affiche la liste paginée, avec recherche optionnelle
-     * (?search=...) et filtre catégorie (?category=2).
+     * (?search=...), filtre catégorie (?category=2) et tri
+     * (?sort=category, ordre alphabétique du libellé).
      */
     public function index(): void
     {
         // Accès réservé aux utilisateurs connectés.
         Auth::requireLogin();
 
-        // Paramètres de l'URL (query string).
-        $search = (string) $this->query('search', '');
-        $page   = max(1, (int) $this->query('page', 1)); // jamais < 1
-
-        // Filtre catégorie : ?category=2 → int, 0 / absent → null (toutes).
-        $categoryId = (int) $this->query('category', 0);
-        $categoryId = $categoryId > 0 ? $categoryId : null;
-
-        // Données de la page courante via le modèle (JOIN category_name).
-        $productModel = new Product();
-        $resultat     = $productModel->search($search, $page, 10, $categoryId);
-
-        // Liste des catégories pour peupler le <select> du filtre.
-        $categoryModel = new Category();
-
-        // Transmission des variables à la vue products/index.php.
-        $this->render('products/index', [
-            'products'         => $resultat['items'], // lignes (+ category_name)
-            'total'            => $resultat['total'], // total filtré
-            'pages'            => $resultat['pages'], // nombre de pages
-            'page'             => $resultat['page'],  // page courante
-            'search'           => $search,            // pour réafficher le champ
-            'categories'       => $categoryModel->allOrdered(), // options du filtre
-            'activeCategoryId' => $categoryId,        // filtre courant (ou null)
-            'title'            => 'Gestion des produits',
+        // Même lecture de ?search, ?category, ?sort et ?page que rows().
+        $this->render('products/index', $this->productListData() + [
+            'title' => 'Gestion des produits',
         ]);
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * FRAGMENT DE LISTE  (URL : GET /products/rows)
+     * ------------------------------------------------------------
+     * Répond au filtre AJAX. Le filtre catégorie, la recherche et
+     * le tri passent par productListData() — la même logique que
+     * index(), sans la modifier. Le JSON contient le HTML des
+     * lignes et de la pagination, pas une nouvelle page.
+     */
+    public function rows(): void
+    {
+        Auth::requireLogin();
+
+        $data = $this->productListData();
+
+        // Le front controller pose text/html : on le remplace ici.
+        header('Content-Type: application/json; charset=utf-8');
+
+        echo json_encode([
+            'rows'       => $this->capture('products/_rows', $data),
+            'pagination' => $this->capture('products/_pagination', $data),
+            'total'      => (int) $data['total'],
+            'sort'       => $data['sort'],
+        ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+        exit;
     }
 
     /**
@@ -364,6 +372,51 @@ class ProductController extends Controller
 
         $this->flash('success', 'Le produit « ' . $product['name'] . ' » a été supprimé.');
         $this->redirect('/products');
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * LIRE LE FILTRE COURANT ET CHARGER LA PAGE DE PRODUITS
+     * ------------------------------------------------------------
+     * Partagé par index() et rows(). La règle du filtre n'a pas
+     * changé : ?category=2 garde l'id, 0 ou absent = toutes.
+     * ?sort=category trie par libellé, sinon les plus récents.
+     *
+     * @return array<string, mixed>
+     */
+    private function productListData(): array
+    {
+        // Paramètres de l'URL (query string).
+        $search = (string) $this->query('search', '');
+        $page   = max(1, (int) $this->query('page', 1)); // jamais < 1
+
+        // Filtre catégorie : ?category=2 → int, 0 / absent → null (toutes).
+        $categoryId = (int) $this->query('category', 0);
+        $categoryId = $categoryId > 0 ? $categoryId : null;
+
+        // Tri : seul 'category' est reconnu (sinon les plus récents).
+        $sort = (string) $this->query('sort', '');
+        if ($sort !== 'category') {
+            $sort = '';
+        }
+
+        // Données de la page courante via le modèle (JOIN category_name).
+        $productModel = new Product();
+        $resultat     = $productModel->search($search, $page, 10, $categoryId, $sort);
+
+        // Liste des catégories pour peupler le <select> du filtre.
+        $categoryModel = new Category();
+
+        return [
+            'products'         => $resultat['items'], // lignes (+ category_name)
+            'total'            => $resultat['total'], // total filtré
+            'pages'            => $resultat['pages'], // nombre de pages
+            'page'             => $resultat['page'],  // page courante
+            'search'           => $search,            // pour réafficher le champ
+            'categories'       => $categoryModel->allOrdered(), // options du filtre
+            'activeCategoryId' => $categoryId,        // filtre courant (ou null)
+            'sort'             => $sort,              // '' ou 'category'
+        ];
     }
 
     /**

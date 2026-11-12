@@ -121,6 +121,34 @@ abstract class Controller
 
     /**
      * ------------------------------------------------------------
+     * CAPTURER UNE VUE PARTIELLE (sans header ni footer)
+     * ------------------------------------------------------------
+     * Sert aux réponses AJAX : le fichier de vue est exécuté et son
+     * HTML est renvoyé comme texte, sans le layout de la page.
+     *
+     * @param string $view Chemin de la vue, ex : "products/_rows"
+     * @param array  $data Données exposées comme variables dans la vue
+     */
+    protected function capture(string $view, array $data = []): string
+    {
+        $this->viewData = array_merge($this->viewData, $data);
+        extract($this->viewData, EXTR_SKIP);
+        $errors  = $this->errors;
+        $success = $this->success;
+
+        $viewFile = VIEWS_PATH . '/' . $view . '.php';
+        if (!file_exists($viewFile)) {
+            return '';
+        }
+
+        ob_start();
+        include $viewFile;
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * ------------------------------------------------------------
      * REDIRIGER LE NAVIGATEUR VERS UNE AUTRE PAGE
      * ------------------------------------------------------------
      * Sert après une action (création, suppression...) pour éviter

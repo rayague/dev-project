@@ -103,6 +103,9 @@ $router->post('/users/delete', 'UserController', 'destroy');
 // LISTER les produits (recherche + pagination) — lecture.
 $router->get('/products', 'ProductController', 'index');
 
+// Fragment AJAX de la liste (mêmes filtres que index, sans layout).
+$router->get('/products/rows', 'ProductController', 'rows');
+
 // Catalogue vitrine (lecture seule) — tout utilisateur connecté.
 $router->get('/products-user', 'ProductController', 'catalog');
 

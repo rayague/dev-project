@@ -430,6 +430,26 @@ select.input--category {
     color: var(--ink-3);
     white-space: nowrap;
 }
+.th-sort {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    outline: none; 
+    border-bottom: 1px solid #6ee7b7;
+
+    &:active {
+        outline: none;
+    }
+}
+.th-sort:hover { color: #fff; }
+.th-sort--on { color: #6ee7b7; }
 .tbl tbody tr { border-top: 1px solid rgba(255, 255, 255, .055); transition: background-color .15s ease; }
 .tbl tbody tr:hover { background: rgba(255, 255, 255, .03); }
 .tbl td { padding: .95rem 1.3rem; vertical-align: middle; }
